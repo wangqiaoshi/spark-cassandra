@@ -1,6 +1,8 @@
 package com.wqs.cassandra;
 
+import org.apache.cassandra.config.Config;
 import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.io.sstable.SSTableLoader;
 import org.apache.cassandra.streaming.StreamResultFuture;
 import org.apache.cassandra.utils.OutputHandler;
 
@@ -19,11 +21,11 @@ public   class Application {
 
     public static void main(String[] args) {
         try{
-        File tempFile = getSStableTempDir("myks","table3");
+        File tempFile = getSStableTempDir("myks","mytable2");
         CassandraSStableWriter writer = new CassandraSStableWriter(tempFile);
 
-        String tableScheme = "create table myks.table3(uuid bigint primary key,value text)";
-        String insertStatement = "insert into myks.table1(uuid,value) values(?,?)";
+        String tableScheme = "create table myks.mytable2(uuid bigint primary key,value text)";
+        String insertStatement = "insert into myks.mytable2(uuid,value) values(?,?)";
         Map<String,Object> map1= new HashMap<>();
         map1.put("uuid",100l);
         map1.put("value","v1");
@@ -35,7 +37,7 @@ public   class Application {
         datas.add(map1);
         datas.add(map2);
         writer.writeSStable(datas,tableScheme,insertStatement);
-            loadSStable(tempFile);
+        loadSStable(tempFile);
 
         }catch (Exception e){
             e.printStackTrace();
@@ -66,11 +68,12 @@ public   class Application {
 
     public static void loadSStable(File tempFile){
         try {
+            Config.setClientMode(true);
             String[] nodes = {"192.168.6.52"};
-            LoaderOptions options = new LoaderOptions(tempFile, nodes, 5);
+            LoaderOptions options = new LoaderOptions(tempFile, nodes,1);
             OutputHandler handler = new OutputHandler.SystemOutput(options.verbose, options.debug);
             CassandraLoadClient client = new CassandraLoadClient(options);
-            CassandraLoader loader = new CassandraLoader(tempFile, client, handler, options.connectionsPerHost);
+            SSTableLoader loader = new SSTableLoader(tempFile, client, handler, options.connectionsPerHost);
             DatabaseDescriptor.setStreamThroughputOutboundMegabitsPerSec(options.throttle);
             DatabaseDescriptor.setInterDCStreamThroughputOutboundMegabitsPerSec(options.interDcThrottle);
             ProgressIndicator indicator = new ProgressIndicator();
@@ -79,6 +82,7 @@ public   class Application {
             future.get();
         }
         catch (Exception e){
+            e.printStackTrace();
 
         }
 
